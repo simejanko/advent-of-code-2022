@@ -36,9 +36,10 @@ with open(sys.argv[2], 'r') as moves_file:
         # move NUM from SOURCE to TARGET
         _, num, _, source_idx, _, target_idx = line.split()
         num, source_idx, target_idx = int(num), int(source_idx) - 1, int(target_idx) - 1
+        crates_to_move = (stacks[source_idx].pop() for _ in range(num))
         if PICK_MULTIPLE_CRATES:
-            stacks[target_idx].extend(reversed([stacks[source_idx].pop() for _ in range(num)]))
+            stacks[target_idx].extend(reversed(list(crates_to_move)))
         else:
-            stacks[target_idx].extend((stacks[source_idx].pop() for _ in range(num)))
+            stacks[target_idx].extend(crates_to_move)
 
     print(''.join(s.pop() for s in stacks if len(s) > 0))
