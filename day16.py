@@ -1,14 +1,15 @@
+import math
 import sys
 from collections import deque
 import re
 import networkx as nx
-# from matplotlib import pyplot as plt
 from itertools import combinations
 
 
-def optimal_cumulative_flow(valve_graph, start_valve, time_limit=30):
+def optimal_cumulative_flow(valve_graph, start_valve, time_limit=30, node_filter=None):
     shortest_paths = nx.floyd_warshall(valve_graph)
-    unopen_valves = {v for v in valve_graph.nodes if valve_graph.nodes[v]['flow'] > 0}
+    unopen_valves = {v for v in valve_graph.nodes if valve_graph.nodes[v]['flow'] > 0 and
+                     (node_filter is None or v in node_filter)}
 
     stack = deque([(start_valve, time_limit, 0, 0, unopen_valves)])
     best_cumulative_flow = 0
@@ -58,3 +59,16 @@ if __name__ == '__main__':
 
     # part 1
     print(optimal_cumulative_flow(valve_graph, 'AA'))
+
+    # part 2
+    best_flow = 0
+    # all possible ways to split the positive flow nodes between two people
+    unopen_valves = {v for v in valve_graph.nodes if valve_graph.nodes[v]['flow'] > 0}
+    for n_p1 in range(1, math.ceil(len(unopen_valves) / 2)):
+        for valves_p1 in combinations(unopen_valves, n_p1):
+            valves_p1 = set(valves_p1)
+            valves_p2 = unopen_valves - valves_p1
+            best_flow = max(best_flow,
+                            optimal_cumulative_flow(valve_graph, 'AA', time_limit=26, node_filter=valves_p1) + \
+                            optimal_cumulative_flow(valve_graph, 'AA', time_limit=26, node_filter=valves_p2))
+    print(best_flow)
