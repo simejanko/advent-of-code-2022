@@ -39,8 +39,12 @@ def tetris(block_shapes, jet_pattern_right, n_blocks=2022, width=7, start_offset
     height = 0
     occupied_cells = set()
     block_shapes_idx = itertools.cycle(range(len(block_shapes)))
-    jet_pattern_right_idx= itertools.cycle(range(len(jet_pattern_right)))
-    for _ in range(n_blocks):
+    jet_pattern_right_idx = itertools.cycle(range(len(jet_pattern_right)))
+
+    full_rows_cache = dict()
+    height_offset = 0
+    b = 0
+    while b < n_blocks:
         b_idx = next(block_shapes_idx)
         block = Block(sx, height + sy, block_shapes[b_idx])
 
@@ -53,8 +57,38 @@ def tetris(block_shapes, jet_pattern_right, n_blocks=2022, width=7, start_offset
                 break
 
         occupied_cells.update(block.abs_shape_gen())
-        height = max(height, max(y for _, y in block.abs_shape_gen()))
-    return height
+        min_block_height, max_block_height = min(y for _, y in block.abs_shape_gen()), \
+            max(y for _, y in block.abs_shape_gen())
+        height = max(height, max_block_height)
+        b += 1
+
+        if full_rows_cache is None:  # cache already utilized
+            continue
+
+        for y in range(max_block_height, min_block_height, -1):
+            if any((x, y) not in occupied_cells for x in range(1, width + 1)):
+                continue
+
+            # new block completes a row, cache indices and occupied cells above the filled row to detect repetitions
+            cells_above_y = set((cx, cy - y) for cx, cy in occupied_cells if cy > y)
+            cache_element = (b_idx, j_idx, tuple(sorted(cells_above_y)))
+
+            if cache_element not in full_rows_cache:
+                full_rows_cache[cache_element] = height, b
+                break
+
+            # repetition detected
+            h_prev, b_prev = full_rows_cache[cache_element]
+            height_diff = height - h_prev
+            b_diff = b - b_prev
+            remaining_blocks = n_blocks - b
+            n_full_repetitions = remaining_blocks // b_diff
+            height_offset = n_full_repetitions * height_diff
+            n_blocks -= n_full_repetitions * b_diff
+            full_rows_cache = None
+            break
+
+    return height + height_offset
 
 
 if __name__ == '__main__':
@@ -69,4 +103,7 @@ if __name__ == '__main__':
                     [(0, 0), (0, 1), (1, 0), (1, 1)]]
 
     # part 1
-    print(tetris(block_shapes, jet_pattern_right))
+    print(tetris(block_shapes, jet_pattern_right))  # 3171
+
+    # part 2
+    print(tetris(block_shapes, jet_pattern_right, n_blocks=1000000000000))
