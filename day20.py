@@ -22,13 +22,18 @@ class CyclicNode:
         prev_node.next_node = head_node
         return head_node
 
-    def traverse(self, n):
+    def traverse(self, n, skip_same_node=False):
         node = self
         for _ in range(abs(n)):
             if n > 0:
                 node = node.next_node
+                if skip_same_node and node == self:
+                    node = node.next_node
+
             else:
                 node = node.prev_node
+                if skip_same_node and node == self:
+                    node = node.prev_node
         return node
 
     def find_id(self, id):
@@ -71,7 +76,7 @@ def mix(numbers, result_ref=0, result_moves=(1000, 1000, 1000)):
 
     for i in range(len(numbers)):
         node = node.find_id(i)
-        node2 = node.traverse(node.n)
+        node2 = node.traverse(node.n, skip_same_node=True)
         if node.n > 0:
             node.move_after(node2)
         elif node.n < 0:
