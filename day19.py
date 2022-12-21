@@ -11,7 +11,10 @@ RES_IDX = {r: i for i, r in enumerate(RES)}
 
 
 # prune based on obviously better nodes amongst the nearest neighbors
-def prune(nodes, time_left):
+def prune(nodes):
+    if len(nodes) <= 1:
+        return nodes
+
     potentials = np.array([resources + robots for resources, robots in nodes])
     potentials_kdtree = KDTree(potentials)
     k = min(len(nodes), 15)
@@ -31,7 +34,7 @@ def eval_blueprint(blueprint, time_limit=24):
     nodes = [(start_resources, start_robots)]
     new_nodes = []
 
-    for time_left in range(time_limit - 1, -1, -1):
+    for t in range(time_limit - 1):
         for resources, robots in nodes:
             after_resources = list(resources)
             for idx, count in enumerate(robots):
@@ -55,10 +58,11 @@ def eval_blueprint(blueprint, time_limit=24):
                 new_nodes.append((new_resources, new_robots))
             new_nodes.append((after_resources, robots))  # or just wait and don't make any robot
 
-        nodes = prune(new_nodes, time_left) if len(new_nodes) > 1 else new_nodes
+        nodes = prune(new_nodes)
         new_nodes = []
 
-    return max(resources[RES_IDX['geo']] for resources, _ in nodes)
+    # include the resources generated in the last timestep
+    return max(resources[RES_IDX['geo']] + robots[RES_IDX['geo']] for resources, robots in nodes)
 
 
 if __name__ == '__main__':
@@ -74,6 +78,13 @@ if __name__ == '__main__':
     # part 1
     quality_sum = 0
     for i, blueprint in enumerate(blueprints):
-        quality_sum += (i+1) * eval_blueprint(blueprint)
-        print(f"{i+1}/{len(blueprints)} blueprints evaluated")
-    print(quality_sum) # 1269 too low
+        quality_sum += (i + 1) * eval_blueprint(blueprint)
+        print(f"{i + 1}/{len(blueprints)} blueprints evaluated")
+    print(quality_sum)
+
+    # part 2
+    quality_mul = 1
+    for i, blueprint in enumerate(blueprints[:3]):
+        quality_mul *= eval_blueprint(blueprint, time_limit=32)
+        print(f"{i + 1}/3 blueprints evaluated")
+    print(quality_mul)
