@@ -2,7 +2,6 @@ import sys
 from dataclasses import dataclass
 
 
-# TODO: skip connections?
 @dataclass
 class CyclicNode:
     id: int
@@ -22,18 +21,13 @@ class CyclicNode:
         prev_node.next_node = head_node
         return head_node
 
-    def traverse(self, n, skip_same_node=False):
+    def traverse(self, n):
         node = self
         for _ in range(abs(n)):
             if n > 0:
                 node = node.next_node
-                if skip_same_node and node == self:
-                    node = node.next_node
-
             else:
                 node = node.prev_node
-                if skip_same_node and node == self:
-                    node = node.prev_node
         return node
 
     def find_id(self, id):
@@ -71,16 +65,20 @@ class CyclicNode:
         return s
 
 
-def mix(numbers, result_ref=0, result_moves=(1000, 1000, 1000)):
+def mix(numbers, result_ref=0, result_moves=(1000, 1000, 1000), repeat=1):
     node = CyclicNode.from_list(numbers)
 
-    for i in range(len(numbers)):
-        node = node.find_id(i)
-        node2 = node.traverse(node.n, skip_same_node=True)
-        if node.n > 0:
-            node.move_after(node2)
-        elif node.n < 0:
-            node.move_before(node2)
+    for _ in range(repeat):
+        for i in range(len(numbers)):
+            node = node.find_id(i)
+            to_traverse = abs(node.n) % (len(numbers) - 1)  # on the wrap-around, skip the node we're moving
+            if node.n < 0:
+                to_traverse = -to_traverse
+            node2 = node.traverse(to_traverse)
+            if to_traverse > 0:
+                node.move_after(node2)
+            elif to_traverse < 0:
+                node.move_before(node2)
 
     node = node.find_val(result_ref)
 
@@ -94,4 +92,10 @@ def mix(numbers, result_ref=0, result_moves=(1000, 1000, 1000)):
 if __name__ == '__main__':
     with open(sys.argv[1]) as f:
         numbers = [int(line.strip()) for line in f]
+
+    # part 1
     print(mix(numbers))
+
+    # part 2
+    numbers = [811589153 * n for n in numbers]
+    print(mix(numbers, repeat=10))
