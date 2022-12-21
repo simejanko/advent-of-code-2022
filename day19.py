@@ -1,54 +1,79 @@
 import sys
 import re
 
+import numpy as np
+from scipy.spatial import KDTree
+
 INT_REGEX = r'-?\d+'
 
 RES = ['ore', 'clay', 'obs', 'geo']
 RES_IDX = {r: i for i, r in enumerate(RES)}
 
-blueprints = []
-with open(sys.argv[1]) as f:
-    for line in f:
-        id, ore_rob_cost, clay_rob_cost, obs_rob_ocost, obs_rob_ccost, geo_rob_ocost, geo_rob_obscost \
-            = map(int, re.findall(INT_REGEX, line))
-        blueprints.append([{'ore': ore_rob_cost}, {'ore': clay_rob_cost}, {'ore': obs_rob_ocost, 'clay': obs_rob_ccost},
-                           {'ore': geo_rob_ocost, 'obs': geo_rob_obscost}])  # RESOURCES order
 
-time_limit = 24
-blueprint = blueprints[1]
-start_resources = [0, 0, 0, 0]  # RESOURCES order
-start_robots = [1, 0, 0, 0]  # RESOURCES order
-nodes = [(start_resources, start_robots)]
-new_nodes = []
-for i in range(time_limit):
-    print(len(nodes))
-    for node in nodes:
-        resources, robots = node
+# prune based on obviously better nodes amongst the nearest neighbors
+def prune(nodes, time_left):
+    potentials = np.array([resources + robots for resources, robots in nodes])
+    potentials_kdtree = KDTree(potentials)
+    k = min(len(nodes), 15)
 
-        after_resources = list(resources)
-        for ri, count in enumerate(robots):
-            after_resources[ri] += count
+    pruned_nodes = []
+    for idx, (node, potential) in enumerate(zip(nodes, potentials)):
+        if not any(np.all(potential <= potentials[nidx])
+                   for nidx in potentials_kdtree.query(potential, k=k)[1] if nidx != idx):
+            pruned_nodes.append(node)
 
-        for ri, recipe in enumerate(blueprint):
-            if not all(resources[RES_IDX[resource_name]] >= cost for resource_name, cost in recipe.items()):
-                continue
-            new_robots = list(robots)
-            new_robots[ri] += 1
+    return pruned_nodes
 
-            new_resources = list(after_resources)
-            for resource_name, cost in recipe.items():
-                new_resources[RES_IDX[resource_name]] -= cost
 
-            # TODO: data structure to make this query efficient
-            if any(all(r1 <= r2 for r1, r2 in zip(new_resources, existing_res)) and
-                   all(r1 <= r2 for r1, r2 in zip(new_robots, existing_rob))
-                   for existing_res, existing_rob in new_nodes):
-                continue
-
-            new_nodes.append((new_resources, new_robots))
-        else:
-            new_nodes.append((after_resources, robots))
-    nodes = new_nodes
+def eval_blueprint(blueprint, time_limit=24):
+    start_resources = [0, 0, 0, 0]  # RES order
+    start_robots = [1, 0, 0, 0]  # RES order
+    nodes = [(start_resources, start_robots)]
     new_nodes = []
 
-print(max(resources[RES_IDX['geo']] for resources, _ in nodes))
+    for time_left in range(time_limit - 1, -1, -1):
+        for resources, robots in nodes:
+            after_resources = list(resources)
+            for idx, count in enumerate(robots):
+                after_resources[idx] += count
+
+            # make new robots branches
+            for ri, recipe in enumerate(blueprint):
+                # check cost
+                if not all(resources[RES_IDX[resource_name]] >= cost for resource_name, cost in recipe.items()):
+                    continue
+
+                # make a robot
+                new_robots = list(robots)
+                new_robots[ri] += 1
+
+                # deduct costs
+                new_resources = list(after_resources)
+                for resource_name, cost in recipe.items():
+                    new_resources[RES_IDX[resource_name]] -= cost
+
+                new_nodes.append((new_resources, new_robots))
+            new_nodes.append((after_resources, robots))  # or just wait and don't make any robot
+
+        nodes = prune(new_nodes, time_left) if len(new_nodes) > 1 else new_nodes
+        new_nodes = []
+
+    return max(resources[RES_IDX['geo']] for resources, _ in nodes)
+
+
+if __name__ == '__main__':
+    blueprints = []
+    with open(sys.argv[1]) as f:
+        for line in f:
+            id, ore_rob_cost, clay_rob_cost, obs_rob_ocost, obs_rob_ccost, geo_rob_ocost, geo_rob_obscost \
+                = map(int, re.findall(INT_REGEX, line))
+            blueprints.append(
+                [{'ore': ore_rob_cost}, {'ore': clay_rob_cost}, {'ore': obs_rob_ocost, 'clay': obs_rob_ccost},
+                 {'ore': geo_rob_ocost, 'obs': geo_rob_obscost}])  # RESOURCES order
+
+    # part 1
+    quality_sum = 0
+    for i, blueprint in enumerate(blueprints):
+        quality_sum += (i+1) * eval_blueprint(blueprint)
+        print(f"{i+1}/{len(blueprints)} blueprints evaluated")
+    print(quality_sum) # 1269 too low
