@@ -51,14 +51,16 @@ def a_star(blizzards_per_timestep, n_rows, n_cols):
         new_blizzards = blizzards_per_timestep[new_step_repeated]
         for dr, dc in moves:
             new_row, new_col = node.row + dr, node.col + dc
-            if (0 <= new_row < n_rows and 0 <= new_col < n_cols or
-                (new_row, new_col) == start) and \
-                    (new_row, new_col, new_step_repeated) not in checked_nodes and \
-                    (new_row, new_col) not in new_blizzards:
-                steps_plus_heuristic = new_step + heuristic((new_row, new_col), end)
-                new_node = Node(steps_plus_heuristic, new_step, new_row, new_col)
-                heapq.heappush(heap, new_node)
-                checked_nodes.add((new_row, new_col, new_step_repeated))
+            if not (0 <= new_row < n_rows and 0 <= new_col < n_cols or (new_row, new_col) == start):
+                continue
+
+            if (new_row, new_col, new_step_repeated) in checked_nodes or (new_row, new_col) in new_blizzards:
+                continue
+
+            steps_plus_heuristic = new_step + heuristic((new_row, new_col), end)
+            new_node = Node(steps_plus_heuristic, new_step, new_row, new_col)
+            heapq.heappush(heap, new_node)
+            checked_nodes.add((new_row, new_col, new_step_repeated))
 
 
 if __name__ == '__main__':
