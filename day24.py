@@ -34,9 +34,9 @@ def blizzards_per_timestep(initial_blizzards, n_rows, n_cols):
     return blizzards_per_t
 
 
-def a_star(blizzards_per_timestep, n_rows, n_cols):
-    start, end = (-1, 0), (n_rows - 1, n_cols - 1)
-    heap = [Node(heuristic(start, end), 0, start[0], start[1])]
+def a_star(blizzards_per_timestep, n_rows, n_cols, start, end, start_timestep=0):
+    top_left, bottom_right = (-1, 0), (n_rows, n_cols - 1)
+    heap = [Node(start_timestep + heuristic(start, end), start_timestep, start[0], start[1])]
     checked_nodes = {(start[0], start[1], 0)}  # row, col, timestep
 
     while heap:
@@ -44,14 +44,19 @@ def a_star(blizzards_per_timestep, n_rows, n_cols):
         if (node.row, node.col) == end:
             return node.steps
 
-        moves = MOVES if node.row >= 0 else [(1, 0), (0, 0)]  # can only move down or wait at start
+        moves = MOVES
+        if (node.row, node.col) == top_left:
+            moves = [(1, 0), (0, 0)]
+        elif (node.row, node.col) == bottom_right:
+            moves = [(-1, 0), (0, 0)]
 
         new_step = node.steps + 1
         new_step_repeated = new_step % len(blizzards_per_timestep)
         new_blizzards = blizzards_per_timestep[new_step_repeated]
         for dr, dc in moves:
             new_row, new_col = node.row + dr, node.col + dc
-            if not (0 <= new_row < n_rows and 0 <= new_col < n_cols or (new_row, new_col) == start):
+            if not (0 <= new_row < n_rows and 0 <= new_col < n_cols or
+                    (new_row, new_col) == top_left or (new_row, new_col) == bottom_right):
                 continue
 
             if (new_row, new_col, new_step_repeated) in checked_nodes or (new_row, new_col) in new_blizzards:
@@ -77,6 +82,14 @@ if __name__ == '__main__':
                 blizzards[(row, col - 1)] = CHAR_TO_DIR[c]
         n_rows -= 1
 
-    # part 1
     blizzards_per_t = blizzards_per_timestep(blizzards, n_rows, n_cols)
-    print(a_star(blizzards_per_t, n_rows, n_cols) + 1)
+    top_left, bottom_right = (-1, 0), (n_rows, n_cols - 1)
+
+    # part 1
+    first_pass = a_star(blizzards_per_t, n_rows, n_cols, top_left, bottom_right)
+    print(first_pass)
+
+    # part 2
+    second_pass = a_star(blizzards_per_t, n_rows, n_cols, bottom_right, top_left, first_pass)
+    third_pass = a_star(blizzards_per_t, n_rows, n_cols, top_left, bottom_right, second_pass)
+    print(third_pass)
